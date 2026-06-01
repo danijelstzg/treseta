@@ -2015,19 +2015,37 @@ function bootApp() {
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js').then(reg => {
-      // Provjera za update svakih 60 minuta dok je tab otvoren
-      setInterval(() => reg.update(), 60 * 60 * 1000);
-      // Kad se nova verzija aktivira, reload (samo ako je već postojao kontroler)
+      // Odmah provjeri ima li novija verzija
+      reg.update();
+      // I dalje provjeravaj svakih 30 min dok je tab otvoren
+      setInterval(() => reg.update(), 30 * 60 * 1000);
+
+      // Kad se pronađe nova verzija, pusti je da preuzme kontrolu odmah
       reg.addEventListener('updatefound', () => {
         const newSW = reg.installing;
         if (!newSW) return;
         newSW.addEventListener('statechange', () => {
-          if (newSW.state === 'activated' && navigator.serviceWorker.controller) {
-            // Tiho — ne reloadat aktivnu partiju, samo sljedeći otvor pokupit će novi cache
+          if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+            // Nova verzija je spremna -> reci joj da preuzme kontrolu
+            newSW.postMessage('SKIP_WAITING');
           }
         });
       });
     }).catch(() => {});
+
+    // Kad novi SW preuzme kontrolu, osvježi stranicu jednom
+    // (osim ako je partija u tijeku — tad čekamo sljedeći otvor)
+    let reloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (reloaded) return;
+      const partijaUTijeku = (typeof G !== 'undefined') && G && G.rounds && G.rounds.length > 0 && !G.finished;
+      if (partijaUTijeku) {
+        showToast && showToast('Nova verzija spremna — učitat će se kod sljedećeg otvaranja');
+        return;
+      }
+      reloaded = true;
+      location.reload();
+    });
   });
 }
 </script>
