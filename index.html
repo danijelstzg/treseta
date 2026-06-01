@@ -1881,9 +1881,24 @@ let initialMenu = false;
 document.getElementById('menuBtn').onclick = ()=>{ initialMenu = false; openM('menuModal'); };
 document.getElementById('menuCloseBtn').onclick = ()=>{
   closeM('menuModal');
-  if (initialMenu) {
-    initialMenu = false;
+  initialMenu = false;
+
+  // Je li app pokrenut kao PWA (dodan na početni zaslon / standalone)?
+  const isPWA = window.matchMedia('(display-mode: standalone)').matches
+             || window.matchMedia('(display-mode: fullscreen)').matches
+             || window.navigator.standalone === true;
+
+  if (isPWA) {
+    // U PWA načinu window.close() obično uspije i zatvori aplikaciju.
     try { window.close(); } catch(e) {}
+    // Fallback ako preglednik ipak ne zatvori: vrati na naslovnicu.
+    setTimeout(()=>{
+      const splash = document.getElementById('splash');
+      if (splash) { splash.style.display = 'flex'; splash.classList.remove('hide'); }
+    }, 300);
+  } else {
+    // Obična kartica u pregledniku -> preusmjeri na Google.
+    window.location.href = 'https://www.google.com';
   }
 };
 
