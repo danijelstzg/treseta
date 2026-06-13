@@ -65,6 +65,30 @@ html[data-theme="dark"]  { color-scheme: dark; }
   :root:not([data-theme="dark"]) { color-scheme: light; }
 }
 
+/* ===================================================================
+   SAMSUNG FORCE DARK KILL SWITCH
+   Samsung Internet i One UI imaju vlastiti "Force Dark" engine koji
+   ignorira color-scheme, !important i sve ostale CSS override tehnike.
+   Jedini sigurni workaround: kad Samsung invertira naše boje, mi
+   odmah invertiramo natrag na originalnu light temu.
+   filter: invert(1) hue-rotate(180deg) je GPU operacija — Samsung
+   Force Dark engine ne može je blokirati niti poništiti.
+   Primjenjuje se SAMO kad je:
+   1. OS u dark modu (prefers-color-scheme: dark), I
+   2. Korisnik nije eksplicitno odabrao dark temu (data-theme != dark)
+   =================================================================== */
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="dark"]) {
+    filter: invert(1) hue-rotate(180deg);
+    /* Slike i video trebaju suprotni invert da ostanu normalne boje */
+  }
+  html:not([data-theme="dark"]) img,
+  html:not([data-theme="dark"]) video,
+  html:not([data-theme="dark"]) canvas {
+    filter: invert(1) hue-rotate(180deg);
+  }
+}
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
 /* Default = TAMNA (Panini-style) tema */
@@ -108,7 +132,15 @@ html[data-theme="light"] {
                radial-gradient(ellipse at bottom right, rgba(184,122,26,0.05) 0%, transparent 50%);
 }
 
-html { height: 100%; }
+/* Kad je korisnik EKSPLICITNO odabrao tamnu temu — ne invertiramo ništa */
+html[data-theme="dark"] {
+  filter: none;
+}
+html[data-theme="dark"] img,
+html[data-theme="dark"] video,
+html[data-theme="dark"] canvas {
+  filter: none;
+}
 
 body {
   height: 100dvh;
@@ -1069,6 +1101,14 @@ body {
   width: 100%;
   display: block;
   filter: drop-shadow(6px 8px 14px rgba(0,0,0,0.35));
+}
+
+/* Kad je Samsung invert aktivan, slika dobiva dupli invert koji je poništava.
+   Preserviramo drop-shadow na wrapperu umjesto na slici kad je dark sistem. */
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="dark"]) .splash-cards {
+    filter: invert(1) hue-rotate(180deg) drop-shadow(6px 8px 14px rgba(0,0,0,0.35));
+  }
 }
 
 .splash-title {
