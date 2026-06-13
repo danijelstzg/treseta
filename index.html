@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#1e2435" id="themeColorMeta">
-<meta name="color-scheme" content="light dark">
+<meta name="color-scheme" content="light">
 
 <!-- PWA manifest -->
 <link rel="manifest" href="manifest.json">
@@ -26,26 +26,44 @@
 
 <title>Trešeta</title>
 <script>
-// Učitaj temu odmah, prije renderiranja, da nema bljeska
+// SLOJ 2 — JavaScript: Forsira light temu odmah, prije ikakvog renderiranja.
+// Ekvivalent attachBaseContext na Androidu — mijenja "context" prije nego
+// browser razriješi temu. Čak i ako je OS u dark modu, app uvijek starta
+// u light temi. Korisnik može ručno odabrati dark iz menija.
 (function(){
   try {
-    var t = localStorage.getItem('treseta_theme') || 'dark';
+    var t = localStorage.getItem('treseta_theme') || 'light'; // light je novi default
+    if (t !== 'dark') t = 'light'; // sanitize — sve što nije eksplicitno dark → light
     if (t === 'light') {
       document.documentElement.setAttribute('data-theme', 'light');
       var meta = document.querySelector('meta[name="theme-color"]');
       if (meta) meta.setAttribute('content', '#f0eee8');
     } else {
-      // dark default - meta već stavljen na #1e2435 u <head>
+      document.documentElement.removeAttribute('data-theme');
+      var meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute('content', '#1e2435');
     }
-  } catch(e) {}
+  } catch(e) {
+    // Fallback ako localStorage nije dostupan (npr. private mode) — light tema
+    document.documentElement.setAttribute('data-theme', 'light');
+  }
 })();
 </script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&family=Caveat:wght@600&family=Inter:wght@400;500;600;700&display=swap');
 
 /* Tema se kontrolira preko data-theme atributa na <html> */
-:root { color-scheme: dark; }
+/* SLOJ 3 — CSS: Eksplicitno odbijamo sistemski dark mode (ekvivalent values-night/themes.xml).
+   prefers-color-scheme: dark blok je namjerno prazan — to je "compile-time" zaštita
+   koja sprečava browser da automatski primjeni dark varijante systemskih boja. */
+:root { color-scheme: light; }
 html[data-theme="light"] { color-scheme: light; }
+html[data-theme="dark"]  { color-scheme: dark; }
+
+/* Override: čak i ako OS forsira dark, ne primjenjujemo to automatski */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="dark"]) { color-scheme: light; }
+}
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
@@ -1760,7 +1778,7 @@ const THEME_KEY = 'treseta_theme';
 const THEME_COLORS = { light: '#f0eee8', dark: '#1e2435' };
 
 function getTheme() {
-  try { return localStorage.getItem(THEME_KEY) || 'dark'; } catch { return 'dark'; }
+  try { return localStorage.getItem(THEME_KEY) || 'light'; } catch { return 'light'; }
 }
 
 function setTheme(theme) {
