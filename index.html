@@ -258,6 +258,7 @@ html, body {
       <button class="m-btn m-btn-ghost" id="saveBtn" style="margin-bottom:8px;">Spremi partiju</button>
       <button class="m-btn m-btn-ghost" id="loadBtn" style="margin-bottom:8px;">Učitaj partiju</button>
       <button class="m-btn m-btn-ghost" id="rulesBtn" style="margin-bottom:8px;">Pravila i akuže</button>
+      <div style="background:#f0f0ea;border:1.5px solid #d4cfc1;border-radius:12px;padding:10px 12px;margin-bottom:8px;"><div style="font-size:11px;font-weight:700;color:#5d5448;letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;">Tema</div><div class="seg" id="themeSegs" style="margin-bottom:0;"><button class="seg-btn" data-theme="light">☀️ Svijetla</button><button class="seg-btn" data-theme="dark">🌙 Tamna</button></div></div>
       <button class="m-btn m-btn-ghost" id="menuCloseBtn">Zatvori</button>
     </div>
   </div>
@@ -425,8 +426,12 @@ function layout() {
   const pad = 12;
   R = {};
 
-  // Header
-  R.header = { x:0, y:safeTop, w:W, h:56 };
+  // Header regions — always defined, even without active game
+  R.header  = { x:0, y:safeTop, w:W, h:56 };
+  R.histBtn = { x:W-104, y:safeTop+8, w:40, h:40 };
+  R.menuBtn = { x:W-56,  y:safeTop+8, w:40, h:40 };
+
+  if (!G) return; // rest of layout needs active game
 
   // Scoreboard
   const n = tc();
@@ -470,9 +475,6 @@ function layout() {
   R.resetBtn = { x:pad, y:btnY, w:(W-pad*2)*0.35-4, h:btnH };
   R.addBtn   = { x:pad + R.resetBtn.w + 8, y:btnY, w:(W-pad*2)*0.65-4, h:btnH };
 
-  // Round badge in header
-  R.histBtn = { x:W-104, y:safeTop+8, w:40, h:40 };
-  R.menuBtn = { x:W-56,  y:safeTop+8, w:40, h:40 };
 }
 
 // ═══════════════ DRAW HELPERS ═══════════════
@@ -538,14 +540,17 @@ function progressBar(x,y,w,h,pct,r) {
 
 // ═══════════════ MAIN DRAW ═══════════════
 function draw() {
-  if (!G) return;
   const W = window.innerWidth;
   const H = window.innerHeight;
   ctx.clearRect(0,0,W,H);
-
-  // Background
   ctx.fillStyle = C.bg;
   ctx.fillRect(0,0,W,H);
+
+  if (!G) {
+    // No active game — just draw header so menu btn is visible
+    drawHeader(W);
+    return;
+  }
 
   drawHeader(W);
   drawScoreboard();
@@ -775,6 +780,11 @@ function ptIn(px,py,r){return px>=r.x&&px<=r.x+r.w&&py>=r.y&&py<=r.y+r.h;}
 canvas.addEventListener('pointerdown', e=>{
   e.preventDefault();
   const px=e.clientX, py=e.clientY;
+
+  // Header buttons always tappable, even without active game
+  if(R.menuBtn && ptIn(px,py,R.menuBtn)){ openM('menuModal'); return; }
+  if(R.histBtn && ptIn(px,py,R.histBtn)){ if(G) openHistory(); return; }
+
   if (!G) return;
 
   // Punti fields
@@ -792,10 +802,7 @@ canvas.addEventListener('pointerdown', e=>{
     draw();
   }
 
-  // History btn
-  if(ptIn(px,py,R.histBtn)) openHistory();
-  // Menu btn
-  if(ptIn(px,py,R.menuBtn)) openM('menuModal');
+  // (history and menu handled above, before G guard)
   // Akuže edit btn
   if(ptIn(px,py,R.akuzeEditBtn)) openAkuzi();
   // Reset btn
@@ -1177,6 +1184,99 @@ function showToast(msg){
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function fmt(ts){const d=new Date(ts),p=n=>String(n).padStart(2,'0');return `${p(d.getDate())}.${p(d.getMonth()+1)}.${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;}
 
+
+// ═══════════════ THEME ═══════════════
+function getTheme(){try{return localStorage.getItem(THEME_KEY)||'light';}catch{return'light';}}
+
+function setTheme(theme){
+  if(theme!=='light'&&theme!=='dark') theme='light';
+  C = theme==='dark' ? DARK : LIGHT;
+
+  // DOM overlay colours — hardcoded per theme so Samsung can't invert them
+  const darkCard='#2e3650', lightCard='#ffffff';
+  const darkBg='#262d42', lightBg='#f0eee8';
+  const darkBorder='1px solid #424a66', lightBorder='1px solid #d4cfc1';
+  const isDark = theme==='dark';
+
+  document.querySelectorAll('.modal').forEach(s=>{
+    s.style.background=isDark?darkCard:lightCard;
+    s.style.border=isDark?darkBorder:lightBorder;
+    s.style.color=isDark?'#ffffff':'#1c1a17';
+  });
+  document.querySelectorAll('.sheet').forEach(s=>{
+    s.style.background=isDark?darkCard:lightCard;
+    s.style.borderTop=isDark?darkBorder:lightBorder;
+  });
+  document.querySelectorAll('.akuz-item,.hist-row,.saved-row,.rule-row').forEach(s=>{
+    s.style.background=isDark?darkBg:lightBg;
+    s.style.border=isDark?'1px solid #353d57':'1px solid #e0dbcc';
+    s.style.color=isDark?'#ffffff':'#1c1a17';
+  });
+  document.querySelectorAll('.m-btn-ghost').forEach(s=>{
+    s.style.background=isDark?'#262d42':'#e8e5dc';
+    s.style.color=isDark?'#ffffff':'#1c1a17';
+    s.style.border=isDark?'1.5px solid #424a66':'1.5px solid #d4cfc1';
+  });
+  document.querySelectorAll('.seg').forEach(s=>{
+    s.style.background=isDark?'#1e2435':'#e8e5dc';
+    s.style.border=isDark?'1px solid #424a66':'1px solid #d4cfc1';
+  });
+  document.querySelectorAll('.seg-btn').forEach(s=>{
+    s.style.color=isDark?'#b0bacf':'#5d5448';
+  });
+  document.querySelectorAll('.seg-btn.active').forEach(s=>{
+    s.style.background=isDark?'#2e3650':'#fff';
+    s.style.color=isDark?'#ff4d2e':'#d63a1f';
+  });
+  document.querySelectorAll('.modal-label,.modal-p,.sheet-title,.ai-name,.ai-hint,.hist-name,.saved-name,.saved-meta,.rule-head,.rule-body').forEach(s=>{
+    s.style.color='';  // reset to CSS class defaults
+  });
+  document.querySelectorAll('input[type="text"],input[type="number"]').forEach(inp=>{
+    inp.style.background=isDark?'#262d42':'#f0eee8';
+    inp.style.color=isDark?'#ffffff':'#1c1a17';
+    inp.style.border=isDark?'1.5px solid #424a66':'1.5px solid #d4cfc1';
+  });
+  document.querySelectorAll('.sheet-close').forEach(s=>{
+    s.style.background=isDark?'#1e2435':'#f0eee8';
+    s.style.color=isDark?'#ffffff':'#1c1a17';
+    s.style.border=isDark?'1px solid #424a66':'1px solid #d4cfc1';
+  });
+
+  document.body.style.background = isDark?'#1e2435':'#f0eee8';
+  const splash = document.getElementById('splash');
+  if(splash) splash.style.background = isDark?'#1e2435':'#f0eee8';
+  const spTitle = splash && splash.querySelector('.sp-title');
+  if(spTitle) spTitle.style.color = isDark?'#ffffff':'#1c1a17';
+  const spCraft = splash && splash.querySelector('.sp-craft');
+  if(spCraft) spCraft.style.color = isDark?'#b0bacf':'#5d5448';
+  const spHint = splash && splash.querySelector('.sp-hint');
+  if(spHint) spHint.style.color = isDark?'#7a85a0':'#a39a87';
+
+  const meta = document.getElementById('themeColorMeta');
+  if(meta) meta.setAttribute('content', isDark?'#1e2435':'#f0eee8');
+
+  try{localStorage.setItem(THEME_KEY,theme);}catch{}
+
+  document.querySelectorAll('#themeSegs .seg-btn').forEach(b=>{
+    const active = b.dataset.theme===theme;
+    b.classList.toggle('active', active);
+    b.style.background = active ? (isDark?'#2e3650':'#fff') : 'transparent';
+    b.style.color = active ? (isDark?'#ff4d2e':'#d63a1f') : (isDark?'#b0bacf':'#5d5448');
+    b.style.boxShadow = active ? (isDark?'0 2px 8px rgba(0,0,0,0.3),0 0 0 1px #ff4d2e':'0 2px 8px rgba(0,0,0,0.1),0 0 0 1px #d63a1f') : 'none';
+  });
+
+  if(G) draw();
+}
+
+function initTheme(){
+  setTheme(getTheme());
+  const segs = document.getElementById('themeSegs');
+  if(segs) segs.addEventListener('click', e=>{
+    const btn = e.target.closest('.seg-btn');
+    if(btn) setTheme(btn.dataset.theme);
+  });
+}
+
 // ═══════════════ INIT ═══════════════
 function bootApp(){
   const auto=loadAuto();
@@ -1249,6 +1349,7 @@ setInterval(()=>{
 },530);
 
 // Start
+initTheme();
 resize();
 </script>
 </body>
